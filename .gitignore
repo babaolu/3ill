@@ -1,0 +1,19 @@
+# Captured sessions (photos, poses, reconstructions)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+
+# OS / editors
+.DS_Store
+*.swp
+*~
+
+# Local env
+.env

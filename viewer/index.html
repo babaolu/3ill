@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3ill viewer</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1em; max-width: 52em; }
+  input { font-size: 1em; padding: .4em; }
+  button { font-size: 1em; padding: .4em .8em; }
+  #stage { width: 100%; aspect-ratio: 4/3; background: #111; margin-top: .8em;
+           display: flex; align-items: center; justify-content: center; }
+  #stage img { max-width: 100%; max-height: 100%; }
+  #thumbs img { height: 72px; margin: 4px 4px 0 0; cursor: pointer; }
+  #meta { color: #333; margin-top: .5em; }
+  .note { background: #fff8e1; padding: .5em; margin-top: .8em; }
+</style>
+<h1>3ill viewer <small>(v0 preview)</small></h1>
+<p>
+  <input id="session" placeholder="session id" autocomplete="off">
+  <button id="load">Load</button>
+  <button id="orbit">Orbit: off</button>
+</p>
+<div id="stage"><span style="color:#888">no session loaded</span></div>
+<div id="meta"></div>
+<div id="thumbs"></div>
+<p class="note"><b>Honest label:</b> this v0 viewer crossfades between contributed
+photos (a "virtual camera" slideshow). True interpolated novel-view rendering
+lands with the reconstruction pipeline (<code>pipeline/</code>). Coverage counts
+below already come from real session data.</p>
+<script>
+const $ = id => document.getElementById(id);
+let photos = [], sid = '', timer = null, idx = 0;
+function show(i) {
+  if (!photos.length) return;
+  idx = (i + photos.length) % photos.length;
+  const p = photos[idx];
+  $('stage').innerHTML = '';
+  const img = document.createElement('img');
+  img.src = '/data/' + encodeURIComponent(sid) + '/' + encodeURIComponent(p.file);
+  img.alt = p.file;
+  $('stage').appendChild(img);
+  $('meta').textContent = (idx + 1) + '/' + photos.length + '  ' + p.file +
+    '  device=' + (p.device || '?') + (p.heading ? '  heading=' + p.heading : '');
+}
+async function load() {
+  sid = $('session').value.trim();
+  if (!sid) return;
+  const r = await fetch('/api/sessions/' + encodeURIComponent(sid));
+  const j = await r.json();
+  photos = j.photos || [];
+  const byDevice = {};
+  photos.forEach(p => { byDevice[p.device || '?'] = (byDevice[p.device || '?'] || 0) + 1; });
+  $('thumbs').innerHTML = '';
+  photos.forEach((p, i) => {
+    const t = document.createElement('img');
+    t.src = '/data/' + encodeURIComponent(sid) + '/' + encodeURIComponent(p.file);
+    t.alt = p.file;
+    t.addEventListener('click', () => show(i));
+    $('thumbs').appendChild(t);
+  });
+  $('meta').textContent = photos.length + ' photos. per device: ' + JSON.stringify(byDevice);
+  show(0);
+}
+$('load').addEventListener('click', load);
+$('orbit').addEventListener('click', () => {
+  if (timer) { clearInterval(timer); timer = null; $('orbit').textContent = 'Orbit: off'; }
+  else if (photos.length) {
+    timer = setInterval(() => show(idx + 1), 1200);
+    $('orbit').textContent = 'Orbit: on';
+  }
+});
+</script>
+</html>

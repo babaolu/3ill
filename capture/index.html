@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3ill capture</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1em; max-width: 28em; }
+  button { font-size: 1.1em; padding: .6em 1em; margin: .3em 0; }
+  input { font-size: 1em; padding: .4em; width: 100%; box-sizing: border-box; }
+  img { max-width: 100%; margin-top: .5em; }
+  #log { white-space: pre-wrap; background: #f4f4f4; padding: .5em; margin-top: .5em; }
+</style>
+<h1>3ill capture</h1>
+<label>Session id (empty = new session)
+  <input id="session" placeholder="e.g. 20261030-183000" autocomplete="off">
+</label>
+<label>Device name
+  <input id="device" value="phone" autocomplete="off">
+</label>
+<p><input id="file" type="file" accept="image/*" capture="environment"></p>
+<p><button id="snap">Upload photo</button></p>
+<img id="preview" alt="">
+<div id="log">ready</div>
+<script>
+const $ = id => document.getElementById(id);
+function log(msg) { $('log').textContent = msg; }
+$('file').addEventListener('change', () => {
+  const f = $('file').files[0];
+  if (f) $('preview').src = URL.createObjectURL(f);
+});
+async function ensureSession() {
+  let sid = $('session').value.trim();
+  if (sid) return sid;
+  const r = await fetch('/api/sessions', {method: 'POST'});
+  const j = await r.json();
+  $('session').value = j.id;
+  return j.id;
+}
+$('snap').addEventListener('click', async () => {
+  const f = $('file').files[0];
+  if (!f) { log('take a photo first'); return; }
+  try {
+    const sid = await ensureSession();
+    const device = $('device').value.trim() || 'phone';
+    log('uploading to ' + sid + ' ...');
+    const r = await fetch('/api/sessions/' + encodeURIComponent(sid) +
+      '/photos?device=' + encodeURIComponent(device),
+      {method: 'POST', headers: {'Content-Type': f.type || 'image/jpeg'}, body: f});
+    const j = await r.json();
+    log(r.ok ? 'saved ' + j.file + ' (' + j.bytes + ' bytes)' : 'error: ' + JSON.stringify(j));
+    $('file').value = '';
+  } catch (e) { log('error: ' + e); }
+});
+</script>
+</html>
