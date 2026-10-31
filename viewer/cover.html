@@ -126,12 +126,35 @@ $('load').addEventListener('click', async () => {
     scene.add(new THREE.Points(g, new THREE.PointsMaterial(
       {size: spread * 0.004, vertexColors: true})));
   }
+  // Dense cloud (dense.json) when the CPU dense step has run.
+  let nDense = 0;
+  try {
+    const rd = await fetch('/data/' + encodeURIComponent(sid) + '/dense.json');
+    if (rd.ok) {
+      const dd = (await rd.json()).points || [];
+      nDense = dd.length;
+      if (dd.length) {
+        const pos = new Float32Array(dd.length * 3);
+        const col = new Float32Array(dd.length * 3);
+        dd.forEach((p, i) => {
+          pos.set(p.slice(0, 3), i * 3);
+          col.set([p[3] / 255, p[4] / 255, p[5] / 255], i * 3);
+        });
+        const g2 = new THREE.BufferGeometry();
+        g2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g2.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        scene.add(new THREE.Points(g2, new THREE.PointsMaterial(
+          {size: spread * 0.002, vertexColors: true})));
+      }
+    }
+  } catch (e) { /* dense layer optional */ }
   (function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
   })();
-  status(cams.length + ' cameras, ' + pts.length + ' points. drag to orbit, scroll to zoom.');
+  status(cams.length + ' cameras, ' + pts.length + ' sparse + ' + nDense +
+    ' dense points. drag to orbit, scroll to zoom.');
 });
 </script>
 </html>
