@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3ill coverage</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1em; max-width: 52em; }
+  input, select { font-size: 1em; padding: .4em; }
+  button { font-size: 1em; padding: .4em .8em; }
+  #view { width: 100%; aspect-ratio: 4/3; background: #111; margin-top: .8em; }
+  #status { margin-top: .5em; color: #333; }
+  .note { background: #fff8e1; padding: .5em; margin-top: .8em; }
+</style>
+<h1>3ill coverage <small>(camera poses + sparse points)</small></h1>
+<p>
+  <select id="session"></select>
+  <button id="load">Load</button>
+</p>
+<div id="view"></div>
+<div id="status">pick a session</div>
+<p class="note"><b>What this is:</b> every registered phone photo drawn as a
+camera frustum in 3D, plus the reconstructed sparse points. Gaps between
+frustums are your blind spots. Built from <code>cover.json</code> (see
+<code>pipeline/poses_to_json.py</code>). Needs network access to load the three.js
+CDN.</p>
+<script type="importmap">
+{"imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+const $ = id => document.getElementById(id);
+function status(msg) { $('status').textContent = msg; }
+try {
+  const r = await fetch('/api/sessions');
+  const j = await r.json();
+  (j.sessions || []).forEach(s => {
+    const o = document.createElement('option');
+    o.value = o.textContent = s;
+    $('session').appendChild(o);
+  });
+} catch (e) { status('cannot list sessions: ' + e); }
+
+$('load').addEventListener('click', async () => {
+  const sid = $('session').value;
+  if (!sid) return;
+  let THREE, OrbitControls;
+  try {
+    THREE = await import('three');
+    ({OrbitControls} = await import('three/addons/controls/OrbitControls.js'));
+  } catch (e) {
+    status('three.js CDN failed — are you offline? (' + e + ')');
+    return;
+  }
+  let cover;
+  try {
+    const r = await fetch('/data/' + encodeURIComponent(sid) + '/cover.json');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    cover = await r.json();
+  } catch (e) {
+    status('no cover.json for ' + sid + ' — run poses_to_json.py first (' + e + ')');
+    return;
+  }
+  const el = $('view');
+  el.innerHTML = '';
+  const renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(el.clientWidth, el.clientHeight);
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x111111);
+  const camera = new THREE.PerspectiveCamera(
+    60, el.clientWidth / el.clientHeight, 0.01, 10000);
+  const cams = cover.cameras || [];
+  const ctr = new THREE.Vector3();
+  cams.forEach(c => ctr.add(new THREE.Vector3(...c.pos)));
+  if (cams.length) ctr.divideScalar(cams.length);
+  let spread = 1;
+  cams.forEach(c => { spread = Math.max(spread, new THREE.Vector3(...c.pos).distanceTo(ctr)); });
+  camera.position.copy(ctr).add(new THREE.Vector3(spread, spread * 0.7, spread));
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.copy(ctr);
+
+  // Camera frustums (red) + view-direction ticks (green).
+  const frustumPts = [], tickPts = [];
+  const size = spread * 0.12;
+  cams.forEach(c => {
+    const p = new THREE.Vector3(...c.pos);
+    const q = new THREE.Quaternion(c.quat[1], c.quat[2], c.quat[3], c.quat[0]);
+    const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+    const up = new THREE.Vector3(0, -1, 0).applyQuaternion(q);
+    const right = new THREE.Vector3().crossVectors(dir, up).normalize();
+    const up2 = new THREE.Vector3().crossVectors(right, dir).normalize();
+    const hh = size * (c.h / c.w), hw = size;
+    const apex = p.clone();
+    const base = p.clone().addScaledVector(dir, size);
+    const corners = [
+      base.clone().addScaledVector(right, -hw).addScaledVector(up2, -hh),
+      base.clone().addScaledVector(right, hw).addScaledVector(up2, -hh),
+      base.clone().addScaledVector(right, hw).addScaledVector(up2, hh),
+      base.clone().addScaledVector(right, -hw).addScaledVector(up2, hh)];
+    for (let i = 0; i < 4; i++) {
+      frustumPts.push(apex, corners[i], corners[i], corners[(i + 1) % 4]);
+    }
+    tickPts.push(p, p.clone().addScaledVector(dir, size * 2));
+  });
+  function lines(pts, color) {
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    return new THREE.LineSegments(g, new THREE.LineBasicMaterial({color}));
+  }
+  if (frustumPts.length) scene.add(lines(frustumPts, 0xff5555));
+  if (tickPts.length) scene.add(lines(tickPts, 0x55ff55));
+
+  // Sparse points.
+  const pts = cover.points || [];
+  if (pts.length) {
+    const pos = new Float32Array(pts.length * 3);
+    const col = new Float32Array(pts.length * 3);
+    pts.forEach((p, i) => {
+      pos.set(p.slice(0, 3), i * 3);
+      col.set([p[3] / 255, p[4] / 255, p[5] / 255], i * 3);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial(
+      {size: spread * 0.004, vertexColors: true})));
+  }
+  (function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  status(cams.length + ' cameras, ' + pts.length + ' points. drag to orbit, scroll to zoom.');
+});
+</script>
+</html>

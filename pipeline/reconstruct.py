@@ -75,9 +75,12 @@ def main():
         )
         raise SystemExit(2)
 
+    # CPU-only flags: the default GPU SIFT path needs a working GL context and
+    # aborts on headless / integrated-graphics machines.
     run(["colmap", "feature_extractor", "--database_path", db_path,
-         "--image_path", img_dir], work)
-    run(["colmap", "exhaustive_matcher", "--database_path", db_path], work)
+         "--image_path", img_dir, "--SiftExtraction.use_gpu", "0"], work)
+    run(["colmap", "exhaustive_matcher", "--database_path", db_path,
+         "--SiftMatching.use_gpu", "0"], work)
     run(["colmap", "mapper", "--database_path", db_path,
          "--image_path", img_dir, "--output_path", sparse_dir], work)
     print("sparse poses written to %s" % sparse_dir)

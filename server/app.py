@@ -77,6 +77,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_static(os.path.join(ROOT, "capture", "index.html"))
         elif parts[0] == "viewer":
             self.send_static(os.path.join(ROOT, "viewer", "index.html"))
+        elif parts[0] == "cover":
+            self.send_static(os.path.join(ROOT, "viewer", "cover.html"))
         elif parts[0] == "data" and len(parts) == 3:
             sid, fname = safe_name(parts[1]), safe_name(parts[2])
             if sid and fname:
