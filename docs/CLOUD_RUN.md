@@ -22,20 +22,22 @@ two runners:
    cloud time. Check frustums in `/cover/`.
 3. Pack the session (photos only; work/ stays local):
    ```bash
-   cd data && tar czf <id>.tgz <id> --exclude='work' && cd ..
+   cd data && tar czf <id>.tgz --exclude='<id>/work' <id> && cd ..
    ```
-4. On the GPU box — one-time setup (~10 min attended, then ~40 min
-   unattended build). The apt COLMAP is sparse-only, so we build the CUDA
-   binary that unlocks `dense.py`. All cells are idempotent and use relative
-   paths (no `/content` assumption):
+4. On the GPU box — one-time setup per fresh runtime (~5 min attended,
+   then ~50 min unattended). Runtimes are EPHEMERAL: a reset wipes packages,
+   the COLMAP build, clones, and uploads — only GitHub/Drive/laptop persist
+   (see "Ephemeral runtimes" below). Fastest path is the one-shot script:
    ```bash
-   !pwd && ls
-   !if [ -d 3ill ]; then git -C 3ill pull -q; else git clone -q https://github.com/babaolu/3ill.git; fi && ls 3ill
-   !python3 -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-   !which nvcc cmake ninja && nvcc --version | tail -n 1
+   !nvidia-smi | head -n 9
+   !if [ -d 3ill ]; then git -C 3ill pull -q; else git clone -q https://github.com/babaolu/3ill.git; fi
+   !cd 3ill && nohup bash cloud/setup_gpu_box.sh > $HOME/3ill-setup.log 2>&1 &
+   !sleep 20; tail -n 8 $HOME/3ill-setup.log
    ```
-   The last line must show an `nvcc` version — no nvcc, no CUDA build (fix:
-   `sudo apt install -y nvidia-cuda-toolkit`, then re-check). Then deps:
+   Prefix `COLMAP_CUDA_ARCH=60` to the script call if `nvidia-smi` shows a
+   P100 instead of a T4 (T4 = 75, the default). Poll with
+   `!tail -n 4 $HOME/3ill-setup.log`. Manual step-by-step cells (fallback /
+   debugging) follow — skip them if the script runs clean:
    ```bash
    !sudo apt update -qq 2>&1 | tail -n 2; sudo apt install -qq -y git cmake ninja-build build-essential \
      libboost-program-options-dev libboost-filesystem-dev libboost-graph-dev \
@@ -102,9 +104,23 @@ two runners:
    Download `3ill/data/<id>/dense.json` + `cover.json` to the laptop's
    `data/<id>/`, open `/cover/`, orbit the scene.
 
-## If Colab has no free GPU
+## Ephemeral runtimes + GPU fallbacks
 
-- Retry later / new account / Kaggle (30 free GPU-hours weekly, same commands).
+- A reset/reclaimed runtime loses everything on the box. Recovery = re-run
+  step 4's script (one command, ~50 min unattended), re-upload the session
+  `.tgz`, re-run steps 5-6. Keep the tab open; poll occasionally.
+- Persist the session tarball on Google Drive to skip re-uploads:
+  ```python
+  from google.colab import drive; drive.mount('/content/drive')
+  ```
+  ```bash
+  !cp 20261101-151941.tgz /content/drive/MyDrive/   # once, while box is alive
+  !cp /content/drive/MyDrive/20261101-151941.tgz .  # after any reset
+  ```
+- Colab GPU limits reset on their own schedule (hours to a day; a second
+  account is the only speedup). Don't wait idle: **Kaggle** gives 30 free
+  GPU-hours weekly (T4/P100, sudo available) and runs the same script —
+  fire it in parallel. Use `COLMAP_CUDA_ARCH=60` on a P100.
 - Fallback demo needs no cloud at all: sparse points + frustums + photo orbit
   (all local). Still "phones built this 3D scene," just sparser.
 
