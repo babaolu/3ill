@@ -92,6 +92,7 @@ def main():
     ap.add_argument("--max-size", type=int, default=1200)
     ap.add_argument("--max-points", type=int, default=100000)
     args = ap.parse_args()
+    args.session = os.path.abspath(args.session)
 
     sparse = os.path.join(args.session, "work", "sparse", "0")
     if not os.path.isdir(sparse):

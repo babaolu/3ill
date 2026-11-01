@@ -47,7 +47,7 @@ def main():
     ap.add_argument("--work", default=None, help="work dir (default: <session>/work)")
     args = ap.parse_args()
 
-    sdir = args.session
+    sdir = os.path.abspath(args.session)  # colmap runs with cwd=work/
     photos = session_photos(sdir)
     print("session: %s  photos: %d" % (sdir, len(photos)))
     if len(photos) < 2:
@@ -76,15 +76,19 @@ def main():
         raise SystemExit(2)
 
     # CPU-only flags: the default GPU SIFT path needs a working GL context and
-    # aborts on headless / integrated-graphics machines.
+    # aborts on headless / integrated-graphics machines. Image size + thread
+    # caps keep full-res phone photos inside laptop RAM (OOM-kill otherwise);
+    # 1600px is plenty for pose estimation.
     run(["colmap", "feature_extractor", "--database_path", db_path,
-         "--image_path", img_dir, "--SiftExtraction.use_gpu", "0"], work)
+         "--image_path", img_dir, "--SiftExtraction.use_gpu", "0",
+         "--SiftExtraction.max_image_size", "1600",
+         "--SiftExtraction.num_threads", "2"], work)
     run(["colmap", "exhaustive_matcher", "--database_path", db_path,
          "--SiftMatching.use_gpu", "0"], work)
     run(["colmap", "mapper", "--database_path", db_path,
          "--image_path", img_dir, "--output_path", sparse_dir], work)
     print("sparse poses written to %s" % sparse_dir)
-    print("NEXT: dense/scene step not yet implemented (see pipeline/README.md).")
+    print("NEXT: run pipeline/dense.py --session %s on a CUDA box (see docs/CLOUD_RUN.md)." % args.session)
 
 
 if __name__ == "__main__":
