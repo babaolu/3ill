@@ -41,3 +41,20 @@ the scene will densify in the cloud).
 ## Stretch: photorealistic splat (same cloud notebook, after dense is secured)
 
 Hard timebox: 3 hours. If it slips, cut it — the dense cloud is the demo.
+
+## Segmentation (Meta SAM 3.1 — needs `MODEL_API_KEY`)
+
+```bash
+pip install -r pipeline/requirements-meta.txt
+export MODEL_API_KEY=...
+# smoke test on 3 photos, then full session:
+python3 pipeline/segment.py --session data/<id> --concept person --mode remove --limit 3
+python3 pipeline/segment.py --session data/<id> --concept person --mode remove
+# reconstruct from masked images (separate --work: the default work/images
+# symlinks already point at the originals and would shadow the masked set):
+python3 pipeline/reconstruct.py --session data/<id> --images-from data/<id>/work/masked --work data/<id>/work-masked
+```
+
+`remove` blacks out matches (people/occluders); `keep` blacks out everything
+except matches (subject isolation, e.g. `--concept generator --mode keep`).
+Writes `work/masked/` + `work/masks.json`. Zero masks = photo copied unchanged.

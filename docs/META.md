@@ -17,7 +17,7 @@ submission story: Meta models doing real work, not bolted on.
 
 | # | Model | Role in 3ill | Status |
 |---|-------|--------------|--------|
-| P0 | SAM 3.1 (`sam-3.1`) | Segment every capture (`pipeline/segment.py`): foreground masks kill background contamination; "person" masks drop dynamic occluders before reconstruction. Masks overlaid in `/viewer/` = visible demo moment | to build |
+| P0 | SAM 3.1 (`sam-3.1`) | `pipeline/segment.py` (BUILT 2026-11-02, written against cookbook `07_sam/01_api_basics`): `--mode remove` drops dynamic occluders ("person"), `--mode keep` isolates the subject; feeds `reconstruct.py --images-from work/masked`. Verify live: `--limit 3` first, inspect `work/masked/`, then full session | VERIFIED LIVE 2026-11-02: 57/63 session photos masked, 6 unchanged (zero-mask safe copy) |
 | P1 | Muse Voice Transcribe (`muse-voice-transcribe-1.0`) | Voice-driven demo on `/capture/`: "snap", "orbit", "next". Small code, big stage charm | to build if time |
 | P2 | Muse Wonder (`muse-wonder-1.0`) | Capture-QA agent: which photos add no coverage, where the blind spots are, "retake from the left". Multimodal chat over thumbnails + cover.json | roadmap / if time |
 | P3 | Muse Image (`muse-image-1.0`) | Generative blind-spot *preview* (clearly labeled concept, not reconstruction) | roadmap only |

@@ -45,10 +45,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--session", required=True, help="e.g. data/20261030-183000")
     ap.add_argument("--work", default=None, help="work dir (default: <session>/work)")
+    ap.add_argument("--images-from", default=None,
+                    help="use images from DIR instead of session photos (e.g. work/masked)")
     args = ap.parse_args()
 
     sdir = os.path.abspath(args.session)  # colmap runs with cwd=work/
-    photos = session_photos(sdir)
+    src = os.path.abspath(args.images_from) if args.images_from else sdir
+    photos = session_photos(src)
     print("session: %s  photos: %d" % (sdir, len(photos)))
     if len(photos) < 2:
         raise SystemExit("need at least 2 photos; capture more via /capture/ first")
@@ -62,7 +65,7 @@ def main():
     for f in photos:
         dst = os.path.join(img_dir, f)
         if not os.path.exists(dst):
-            os.symlink(os.path.abspath(os.path.join(sdir, f)), dst)
+            os.symlink(os.path.join(src, f), dst)
 
     tools = {t: shutil.which(t) for t in ("colmap", "ffmpeg")}
     print("tools: " + json.dumps(tools))

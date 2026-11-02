@@ -87,7 +87,12 @@ two runners:
    re-applied), then reconfigure + resume.
    Do steps 1-3 and the sparse pass (step 5) while it compiles. Keep the tab
    open on ephemeral runtimes — a reclaimed runtime kills the build.
-5. Upload `<id>.tgz` next to the `3ill` folder, run the sparse pass:
+5. Upload `<id>.tgz` next to the `3ill` folder (keep the tab open until the
+   upload completes — a truncated file fails with `Unexpected EOF in
+   archive`). Verify, then extract and run the sparse pass:
+   ```bash
+   !ls -lh ../<id>.tgz && tar tzf ../<id>.tgz > /dev/null && echo TARBALL_OK
+   ```
    ```bash
    !cd 3ill && mkdir -p data && tar xzf ../<id>.tgz -C data
    !cd 3ill && python3 pipeline/reconstruct.py --session data/<id>
@@ -102,7 +107,9 @@ two runners:
    !cd 3ill && python3 pipeline/dense.py --session data/<id> --max-size 1200
    ```
    Download `3ill/data/<id>/dense.json` + `cover.json` to the laptop's
-   `data/<id>/`, open `/cover/`, orbit the scene.
+   `data/<id>/` **the instant dense finishes — runtimes disconnect without
+   warning and take the files with them** (proven 2026-11-02: 526k-point bake
+   lost to a disconnect before download). Then open `/cover/`, orbit.
 
 ## Ephemeral runtimes + GPU fallbacks
 

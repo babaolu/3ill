@@ -1,0 +1,6 @@
+# Extra deps for the Meta SAM stage only (pipeline/segment.py).
+# Everything else in this repo is stdlib-only.
+# Install:  pip install -r pipeline/requirements-meta.txt
+openai>=1.0
+meta_sam_parser
+pillow
